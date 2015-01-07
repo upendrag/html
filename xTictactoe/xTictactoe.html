@@ -1,0 +1,397 @@
+<html>
+<head>
+<script type="text/javascript">
+	window.alternate = false;
+	var ballCount = 0;
+	var arrBall = new Array();
+	var ctx;
+	var radius = 15;
+	var ballcanvas;
+	var selectedBall;
+	var arrBallsToBlink;
+
+	function draw() {
+		ballcanvas = document.getElementById('ballpanel');
+		
+		ballcanvas.onmousedown=selectBall;
+		ballcanvas.onmouseup=releaseBall;
+		ballcanvas.onmousemove=moveBall;
+		ballcanvas.onmouseout=mouseOutCanvas;
+		
+		ctx = document.getElementById('canvas1').getContext('2d');  
+		drawGameOutline();
+	}  
+
+	function drawGameOutline()
+	{
+		//draw rectangles
+		ctx.beginPath();
+		ctx.rect(0,0,50,50);  
+		ctx.rect(150,0,50,50);
+		ctx.rect(0,150,50,50);
+		ctx.rect(150,150,50,50);
+		ctx.rect(0,300,50,50);
+		ctx.rect(300,0,50,50);
+		ctx.rect(150,300,50,50);
+		ctx.rect(300,150,50,50);
+		ctx.rect(300,300,50,50);
+	  
+		//connect rectangles
+		for(var i=25; i<=325; i=i+150)
+		{
+		for(var j=50;j<=200;j=j+150)
+		{
+			//horizontal lines
+			ctx.moveTo(j,i);
+			ctx.lineTo(j+100,i);
+			//vertical lines
+			ctx.moveTo(i,j);
+			ctx.lineTo(i,j+100);
+		}
+		}
+	  
+		//draw diagonals
+		ctx.moveTo(50,50);
+		ctx.lineTo(150,150);
+		ctx.moveTo(200,200);
+		ctx.lineTo(300,300);
+		ctx.moveTo(50,300);
+		ctx.lineTo(150,200);
+		ctx.moveTo(200,150);
+		ctx.lineTo(300,50);
+
+		ctx.stroke();
+		ctx.closePath();
+	}
+
+	function OnCanvasClick(e)
+	{
+		if(ballCount < 6)
+		{
+			var rectSelectedOrigin = getSelectedRectangleOrigin(e.clientX, e.clientY);
+			rectSelectedOrigin.X = rectSelectedOrigin.X + 25;
+			rectSelectedOrigin.Y = rectSelectedOrigin.Y + 25;
+			
+			if(!isOverlapping(rectSelectedOrigin))
+			{
+				if(rectSelectedOrigin != null)
+				{
+					if(alternate)
+						drawRedCircle(rectSelectedOrigin);
+					else
+						drawBlueCircle(rectSelectedOrigin);
+					alternate = !alternate;
+				}
+			}
+			if(ballCount > 4)
+				makeDecision();
+		}
+	}
+	
+	function makeDecision()
+	{
+		var color = alternate? "BLUE":"RED";
+		var arrBallsInLine = new Array();
+		var indx = 0;
+		for(var i=0; i< arrBall.length; i++)
+		{
+			if(arrBall[i].color == color)
+				arrBallsInLine[indx++] = arrBall[i];
+		}
+		if(isLinear(arrBallsInLine))
+			BlinkBalls(arrBallsInLine);
+	}
+	
+	function isLinear(arrBallsInLine)
+	{
+		var m1, m2; //slopes for 2 different given points
+		
+		var x1 = arrBallsInLine[0].centre.X;
+		var y1 = arrBallsInLine[0].centre.Y;
+		var x2 = arrBallsInLine[1].centre.X;
+		var y2 = arrBallsInLine[1].centre.Y;
+		var x3 = arrBallsInLine[2].centre.X;
+		var y3 = arrBallsInLine[2].centre.Y;
+		
+		if((x2 - x1) == 0 || (x2 - x3) == 0 || (x3 - x1) == 0)
+		{
+			if((x3 - x1) == 0 && (x2 - x1) == 0)
+				return true;
+			else
+				return false;
+		}
+		
+		m1 = (y2 - y1)/(x2 - x1);
+		m2 = (y3 - y1)/(x3 - x1);
+		
+		if(m1 == m2)
+			return true;
+			
+		return false;		
+	}
+	
+	function BlinkBalls(arrBallsInLine)
+	{
+		ballcanvas.onmousedown=null;
+		ballcanvas.onmouseup=null;
+		ballcanvas.onmousemove=null;
+		ballcanvas.onmouseout=null;
+		
+		var count = 10;
+        var timer = setInterval(function() 
+		{
+            count--;
+            if( count%2 == 1) 
+			{
+                clearAfterDelay(arrBallsInLine);// clear balls
+            }
+            else 
+			{
+                drawAfterDelay(arrBallsInLine);// draw again
+            }
+            if( count == 0)
+			{
+				clearInterval(timer);
+				alert('Game Over\n' + arrBallsInLine[0].color + ' wins!!');
+				window.location.reload();
+			}				
+        },
+		500);			
+		
+	}
+	
+	function clearAfterDelay(arrBallsInLine)
+	{
+		for(var i=0; i< arrBallsInLine.length; i++)
+		{
+			clearBall(arrBallsInLine[i]);
+		}
+	}
+	
+	function drawAfterDelay(arrBallsInLine)
+	{
+		for(var i=0; i< arrBallsInLine.length; i++)
+		{
+			drawBall(arrBallsInLine[i]);
+		}
+	}
+
+	function isOverlapping(rectSelectedOrigin)
+	{
+		for(var i=0; i< arrBall.length; i++)
+		{
+			if(arrBall[i].centre.X == rectSelectedOrigin.X &&
+				arrBall[i].centre.Y == rectSelectedOrigin.Y)
+				return true;
+		}
+		
+		return false;
+	}
+
+	function CustomPoint(xCo, yCo)
+	{
+		this.X = xCo;
+		this.Y = yCo;
+	}
+
+	function getSelectedRectangleOrigin(x, y)
+	{
+		if(x>0 && x<50 && y>0 && y<50)
+			return new CustomPoint(0,0);
+		else if(x>150 && x<200 && y>0 && y<50)
+			return new CustomPoint(150,0);
+		else if(x>300 && x<350 && y>0 && y<50)
+			return new CustomPoint(300,0);
+		else if(x>0 && x<50 && y>150 && y<200)
+			return new CustomPoint(0,150);
+		else if(x>0 && x<50 && y>300 && y<350)
+			return new CustomPoint(0,300);
+		else if(x>150 && x<200 && y>150 && y<200)
+			return new CustomPoint(150,150);
+		else if(x>150 && x<200 && y>300 && y<350)
+			return new CustomPoint(150,300);
+		else if(x>300 && x<350 && y>150 && y<200)
+			return new CustomPoint(300,150);
+		else if(x>300 && x<350 && y>300 && y<350)
+			return new CustomPoint(300,300);
+		else return null;
+	}
+
+	function drawRedCircle(centre)
+	{
+		var ballObject = new Ball(centre, "RED");
+		drawBall(ballObject);
+		ballObject.id = ballCount;
+		arrBall[ballCount] = ballObject;
+		ballCount++;
+	}
+
+	function drawBlueCircle(centre)
+	{
+		var ballObject = new Ball(centre, "BLUE");
+		drawBall(ballObject);
+		ballObject.id = ballCount;
+		arrBall[ballCount] = ballObject;
+		ballCount++;
+	}
+
+	function Ball(centre,color)
+	{
+		this.id = 0;
+		this.centre = centre;
+		this.color = color;
+		this.lastX = centre.X;
+		this.lastY = centre.Y;
+	}
+
+	function drawBall(ballObject)
+	{
+		ctx.beginPath();
+		if(ballObject.color == "RED")
+			ctx.fillStyle = "#FF0000";
+		else
+			ctx.fillStyle = "#0000FF";
+		ctx.arc(ballObject.centre.X,
+				ballObject.centre.Y,
+				radius,0,2*Math.PI,true);
+		ctx.fill();	
+		ctx.closePath();
+	}
+
+	function selectBall(event)
+	{
+		if(ballCount < 6)
+			return;
+		var mx=event.clientX;
+		var my=event.clientY;
+		
+		selectedBall = null;
+		for(var i=0; i< arrBall.length; i++)
+		{
+			var posX = arrBall[i].centre.X;
+			var posY = arrBall[i].centre.Y;
+			if( (posX-mx)*(posX-mx)+(posY-my)*(posY-my) < radius*radius
+			&& ((alternate == false && arrBall[i].color == "BLUE")
+			||(alternate == true && arrBall[i].color == "RED")))
+			{
+				selectedBall = arrBall[i];
+				break;
+			}
+		}
+		//alert(selectedBall.centre.X + ',' + selectedBall.color);
+	}
+
+	function releaseBall(event)
+	{
+		if(selectedBall != null)
+		{
+			if(IsReleasable(selectedBall))
+			{
+				var normalizedPoint = getSelectedRectangleOrigin(selectedBall.centre.X, selectedBall.centre.Y);
+				redrawBall(normalizedPoint.X + 25, normalizedPoint.Y + 25);
+				selectedBall.lastX = normalizedPoint.X + 25;
+				selectedBall.lastY = normalizedPoint.Y + 25;
+				alternate = !alternate;
+				makeDecision();
+			}
+			else
+				resetBallPosition();
+			selectedBall = null;
+		}
+	}
+	
+	function IsReleasable(selectedBall)
+	{
+		var rectCentre = getSelectedRectangleOrigin(selectedBall.centre.X, selectedBall.centre.Y);
+		if(rectCentre == null)
+			return false;
+		var cx = rectCentre.X + 25;
+		var cy = rectCentre.Y + 25;
+		var lx = selectedBall.lastX;
+		var ly = selectedBall.lastY;
+		
+		if((((cx - lx)*(cx - lx) == 150*150) && ((cy - ly)*(cy - ly) == 150*150) && ((lx == 175 && ly == 175) || (cx == 175 && cy == 175) ))
+			|| (((cx - lx)*(cx - lx) == 150*150) && (cy - ly) == 0)
+			|| (((cy - ly)*(cy - ly) == 150*150) && (cx - lx)==0))
+			return true;
+		
+		return false;
+	}
+
+	function mouseOutCanvas(event)
+	{
+		if(selectedBall != null)
+		{
+			resetBallPosition();
+			selectedBall = null;
+		}	
+	}
+
+	function moveBall(event)
+	{		
+		if( selectedBall != null )
+		{			
+			var mx=event.clientX;
+			var my=event.clientY;		
+			
+			if(isInvalidArea(mx, my, selectedBall.id))
+			{
+				return;
+			}
+			redrawBall(mx,my);		
+		}
+	}
+		
+	function redrawBall(mx,my)
+	{
+		clearBall(selectedBall);
+		selectedBall.centre.X = mx;
+		selectedBall.centre.Y = my;
+		drawBackground();
+		drawBall(selectedBall);
+	}
+	
+	function resetBallPosition()
+	{
+		redrawBall(selectedBall.lastX,
+				selectedBall.lastY);
+	}
+
+	function clearBall(ballObject)
+	{
+		ctx.clearRect(ballObject.centre.X - radius,
+					ballObject.centre.Y - radius,
+					radius*2, radius*2);
+	}
+
+	function drawBackground()
+	{
+		drawGameOutline();
+	}
+
+	function isInvalidArea(mx, my, ballId)
+	{
+		var posX;
+		var posY;
+		for(var i=0; i< arrBall.length; i++)
+		{
+			if(arrBall[i].id == ballId)
+				continue;
+			
+			posX = arrBall[i].centre.X;
+			posY = arrBall[i].centre.Y;
+			if( (posX-mx)*(posX-mx)+(posY-my)*(posY-my) <= radius*radius*6)
+				return true;
+		}				
+		return false;
+	}
+
+</script>
+
+</head>
+<body onload="draw()">
+<div id="ballpanel">
+<canvas id="canvas1" width="350" height="350" onclick="OnCanvasClick(event);"></canvas>
+</div>
+</body>
+</html>
